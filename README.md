@@ -11,3 +11,7 @@ Install it like an app: on iPhone/iPad open the site in Safari, tap Share › Ad
 ## Airport analysis (testing)
 
 `apg/` holds the APG airport analysis reports for N282BT, encrypted (AES-256-GCM; each file is a 12-byte IV followed by the ciphertext). File names are random and reveal nothing. Only logins that are given the airports key in their own encrypted sign-in entry see the Airports tile and can open the reports; while testing that is Matt only. `build/` holds the page code the crew site build adds for it, and `vendor/` holds the PDF viewer (PDF.js, Apache-2.0) so reports open offline. The app downloads every report after sign-in so they open without signal.
+
+## Quick Quote (Matt only)
+
+`quote/quote.bin` is the Quick Quote estimator, encrypted with its own key (same format as `apg/`). Only logins given that key see the Quick Quote tile; it opens full screen and works offline. Saved leads and added airports stay on the device.

@@ -104,3 +104,31 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("input", e => { if (e.target.id === "apg-q") { APG.q = e.target.value; scheduleRender(); } });
 addEventListener("online", () => { if (APGK) apgBoot(); });
+/* Quick Quote (business development estimates). Encrypted at quote/quote.bin with its own key ("q"),
+   given only to the logins on the build's quote list; opens full screen and works offline. */
+let QQK = null;
+async function qqOpenBuf(buf) {
+  const k = await crypto.subtle.importKey("raw", b64d(QQK), "AES-GCM", false, ["decrypt"]);
+  const b = new Uint8Array(buf);
+  return new Uint8Array(await crypto.subtle.decrypt({name: "AES-GCM", iv: b.subarray(0, 12)}, k, b.subarray(12)));
+}
+async function qqBoot() {
+  if (!QQK) return;
+  try { const c = await caches.open(APG_CACHE); if (!(await c.match("quote/quote.bin", {ignoreSearch: true})) && navigator.onLine !== false) { const r = await fetch("quote/quote.bin"); if (r.ok) await c.put("quote/quote.bin", r); } } catch (x) {}
+}
+function qqTile() {
+  if (!QQK) return "";
+  return `<button type="button" class="tile acc" data-qq="1"><div class="tile-h"><span class="ico">${ICON.cal}</span>Quick Quote</div><div class="tile-b"><span class="big" style="font:600 17px/1.3 var(--f-display)">Estimate a trip</span></div><div class="tile-f">Block time, fuel, trips and duty days · only you</div></button>`;
+}
+async function qqShow() {
+  const v = document.createElement("div"); v.className = "apg-v"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "Quick Quote");
+  v.innerHTML = `<div class="apg-vh"><button type="button" class="btn sm" data-apg-close>Back</button><span class="t">Quick Quote</span></div><div class="apg-vb" style="padding:0;display:block"><p class="hint" style="padding:10px">Opening…</p></div>`;
+  document.body.appendChild(v);
+  const body = v.querySelector(".apg-vb");
+  try {
+    const html = new TextDecoder().decode(await qqOpenBuf(await apgFetch("quote/quote.bin")));
+    const f = document.createElement("iframe"); f.title = "Quick Quote"; f.setAttribute("allow", "clipboard-write"); f.style.cssText = "width:100%;height:100%;border:0;display:block;background:#f4f6f9";
+    f.srcdoc = html; body.innerHTML = ""; body.appendChild(f);
+  } catch (x) { body.innerHTML = `<p class="hint" style="padding:10px">${x.message === "offline" ? "Quick Quote isn't saved on this device yet. Connect once to download it." : "Couldn't open Quick Quote."}</p>`; }
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-qq]")) qqShow(); });
