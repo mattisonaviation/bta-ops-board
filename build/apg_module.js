@@ -132,3 +132,39 @@ async function qqShow() {
   } catch (x) { body.innerHTML = `<p class="hint" style="padding:10px">${x.message === "offline" ? "Quick Quote isn't saved on this device yet. Connect once to download it." : "Couldn't open Quick Quote."}</p>`; }
 }
 document.addEventListener("click", e => { if (e.target.closest("[data-qq]")) qqShow(); });
+/* Check Ride (check airman tool). Encrypted at checkride/*.bin with its own key ("k"), given only to the logins on
+   the build's check-ride list. The app opens full screen, works offline and keeps its checks and photos on the device.
+   The blank JLI forms are decrypted here and handed to the app; the key never enters the app's page. */
+let CKK = null;
+const CK_FILES = ["checkride/app.bin", "checkride/tr2.bin", "checkride/tr6.bin", "checkride/tr7.bin", "vendor/pdf-lib.min.js"];
+async function ckOpenBuf(buf) {
+  const k = await crypto.subtle.importKey("raw", b64d(CKK), "AES-GCM", false, ["decrypt"]);
+  const b = new Uint8Array(buf);
+  return new Uint8Array(await crypto.subtle.decrypt({name: "AES-GCM", iv: b.subarray(0, 12)}, k, b.subarray(12)));
+}
+async function ckBoot() {
+  if (!CKK) return;
+  let c = null; try { c = await caches.open(APG_CACHE); } catch (x) {}
+  for (const f of CK_FILES) {
+    try { if (c && !(await c.match(f, {ignoreSearch: true})) && navigator.onLine !== false) { const r = await fetch(f); if (r.ok) await c.put(f, r); } } catch (x) {}
+  }
+}
+window.__ckLoad = async name => { if (!CKK || !/^tr[267]$/.test(name)) throw new Error("not available"); return ckOpenBuf(await apgFetch("checkride/" + name + ".bin")); };
+window.__ckData = () => { try { return {pilots: (SNAP && SNAP.pilots) || [], training: (SNAP && SNAP.training) || []}; } catch (x) { return {pilots: [], training: []}; } };
+function ckTile() {
+  if (!CKK) return "";
+  return `<button type="button" class="tile acc" data-ck="1"><div class="tile-h"><span class="ico">${ICON.train}</span>Check Ride</div><div class="tile-b"><span class="big" style="font:600 17px/1.3 var(--f-display)">Run a check</span></div><div class="tile-f">135.293 · 297 · 299, briefings, grading, JLI forms · only you</div></button>`;
+}
+async function ckShow() {
+  const v = document.createElement("div"); v.className = "apg-v"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "Check Ride");
+  v.innerHTML = `<div class="apg-vh"><button type="button" class="btn sm" data-apg-close>Back</button><span class="t">Check Ride</span></div><div class="apg-vb" style="padding:0;display:block"><p class="hint" style="padding:10px">Opening…</p></div>`;
+  document.body.appendChild(v);
+  const body = v.querySelector(".apg-vb");
+  try {
+    const html = new TextDecoder().decode(await ckOpenBuf(await apgFetch("checkride/app.bin")));
+    const f = document.createElement("iframe"); f.title = "Check Ride"; f.setAttribute("allow", "web-share; clipboard-write; camera"); f.style.cssText = "width:100%;height:100%;border:0;display:block;background:#f4f6f9";
+    f.srcdoc = html; body.innerHTML = ""; body.appendChild(f);
+  } catch (x) { body.innerHTML = `<p class="hint" style="padding:10px">${x.message === "offline" ? "Check Ride isn't saved on this device yet. Connect once to download it." : "Couldn't open Check Ride."}</p>`; }
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-ck]")) ckShow(); });
+addEventListener("online", () => { if (CKK) ckBoot(); });

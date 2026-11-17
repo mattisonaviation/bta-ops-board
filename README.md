@@ -15,3 +15,7 @@ Install it like an app: on iPhone/iPad open the site in Safari, tap Share › Ad
 ## Quick Quote (Matt only)
 
 `quote/quote.bin` is the Quick Quote estimator, encrypted with its own key (same format as `apg/`). Only logins given that key see the Quick Quote tile; it opens full screen and works offline. Saved leads and added airports stay on the device.
+
+## Check Ride (Matt only)
+
+`checkride/` holds the check airman tool for 135.293/297/299 checks in N282BT (briefings, scenario oral, grading, document photos and the Jet Logistics TR-2/TR-6/TR-7 forms), encrypted with its own key (same format as `apg/`): `app.bin` is the app and `tr2.bin`, `tr6.bin`, `tr7.bin` are the blank JLI forms. Only logins given that key see the Check Ride tile; it opens full screen and works offline. Checks and photos stay on the device. `vendor/pdf-lib.min.js` (MIT) fills the forms in the browser.
