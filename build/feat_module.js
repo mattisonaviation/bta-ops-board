@@ -108,10 +108,17 @@ function ftWrap(tab, html) {
     if (tab === "home") { if (ftOn("homev2")) html = ftHomeV2(html); if (ftLay("tlfilter")) html = ftTlFilter(html); if (ftOn("status")) html = ftStatus() + html; }
     if (tab === "schedule" && ftLay("phone")) html = html.replace(/<div class="box scroll"><table class="t">/g, '<div class="box scroll ft-stack"><table class="t">').replace('<div class="box scroll ft-stack"><table class="t"><thead><tr><th>Pilot</th><th>Seat</th>', '<div class="box scroll ft-stack ft-rot"><table class="t"><thead><tr><th>Pilot</th><th>Seat</th>');
     if (tab === "training") { let pre = ""; if (ftOn("grid")) pre += ftGrid(true); if (ftOn("expiry")) pre += ftExpiry(true); html = pre + html; }
-    if (tab === "maintenance" && ftOn("forecast")) html = ftForecast(true) + html;
+    if (tab === "maintenance" && ftOn("forecast")) html = ftForecast(true) + ftFoldMx(html);
   } catch (x) { console.error("feature", x); }
   queueMicrotask(ftDecorate);
   return html;
+}
+/* With the forecast on, the long "Coming due" list folds away under one tap. */
+function ftFoldMx(html) {
+  const A = '<section class="panel">\n    <div class="panel-h"><h2>Coming due</h2>', a = html.indexOf(A); if (a < 0) return html;
+  const e = html.indexOf("</section>", a); if (e < 0) return html;
+  const sec = html.slice(a, e + 10), open = !!ui.ftMxOpen;
+  return html.slice(0, a) + `<div class="ft-fold"><button type="button" class="ft-foldh" data-ft-fold aria-expanded="${open}"><b>Full Veryon list</b><span>${open ? "Hide ▴" : "Filters, every item ▾"}</span></button>${open ? sec : ""}</div>` + html.slice(e + 10);
 }
 /* Timeline on Home: keep the Flying row and only people with something in the window. */
 function ftTlFilter(html) {
@@ -372,7 +379,7 @@ function ftLegal(p) {
   if (!CREW_SEATS.has(p.seat)) return {st: "none", l: "n/a", why: "Not a flight-crew seat"};
   const items = S.training.filter(t => t.pilotId === p.id && FT_LEGAL.test(t.item));
   const bad = items.filter(t => { const s = trainingStatus(t); return s.state === "crit" && !s.inGrace; });
-  if (bad.length) return {st: "crit", l: "No", why: bad.map(t => t.item).join(", ")};
+  if (bad.length) return {st: "crit", l: "No (135)", why: "Not for Part 135 legs (Part 91 only): " + bad.map(t => t.item).join(", ")};
   const nd = items.filter(t => trainingStatus(t).state === "none");
   if (nd.length || !items.length) return {st: "warn", l: "Check", why: nd.length ? "No date: " + nd.map(t => t.item).join(", ") : "No items"};
   const gr = items.filter(t => trainingStatus(t).inGrace);
@@ -381,7 +388,7 @@ function ftLegal(p) {
 function ftGrid(slot) {
   const ps = pilotsSorted().filter(p => !limited() || p.id === ME.pilotId);
   const body = `<div class="ft-scroll"><table class="t ft-grid"><thead><tr><th>Person</th><th>Legal today</th>${FT_GRID.map(g => `<th>${esc(g[0])}</th>`).join("")}</tr></thead><tbody>${ps.map(p => { const L = ftLegal(p); return `<tr><td><b>${esc(p.name.split(" ")[0])}</b><small>${esc(seatShort(p))}</small></td><td title="${esc(L.why)}">${ftChip(L.st, L.l)}</td>${FT_GRID.map(([, re]) => { const c = ftCell(S.training.filter(t => t.pilotId === p.id && re.test(t.item))); return `<td>${ftChip(c.st, c.l)}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
-  if (slot) return `<section class="panel"><div class="panel-h"><h2>Training at a glance</h2><span class="ft-hd">${ftTesting()}<button class="btn sm" data-ft-go="grid">Details</button></span></div>${body}<p class="hint">Legal today = no expired Part 135 item, medical or hazmat on the board (grace month counts). A board check, not a legal ruling: confirm against the JLI tracker.</p></section>`;
+  if (slot) return `<section class="panel"><div class="panel-h"><h2>Training at a glance</h2><span class="ft-hd">${ftTesting()}<button class="btn sm" data-ft-go="grid">Details</button></span></div>${body}<p class="hint">Legal today = for Part 135 legs: no expired Part 135 item, medical or hazmat on the board (grace month counts). "No (135)" can still fly Part 91. A board check, not a legal ruling: confirm against the JLI tracker.</p></section>`;
   return `${ftBack("Training grid", ftTesting())}${body}
     <h3 class="ft-g">Why</h3><div class="apg-list">${ps.map(p => { const L = ftLegal(p); return `<div class="ft-row"><span class="nm"><b>${esc(p.name)}</b><span class="sub">${esc(L.why)}</span></span>${ftChip(L.st, L.l)}</div>`; }).join("")}</div>
     <p class="hint">Chips: OK = current · Due = within 45 days · Grace = in the grace month · Exp = past the hard deadline · No date = not on the tracker. Tap a person's training on the Training tab to see each item.</p>`;
@@ -439,7 +446,7 @@ function ftForecast(slot) {
   const list = mxItems().filter(it => !ui.mxOff.has(it.type) && !(mxPlan(it.id) && mxPlan(it.id).status === "Complete in Veryon")).map(it => ({it, nx: mxNext(it, C0)})).filter(x => x.nx && x.nx.d <= addMonths(TODAY, 6)).sort((a, b) => a.nx.d - b.nx.d);
   const months = []; for (let i = 0; i < 7; i++) { const d = new Date(TODAY.getFullYear(), TODAY.getMonth() + i, 1); months.push(ymKey(d)); }
   const by = k => list.filter(x => (x.nx.d < TODAY ? ymKey(TODAY) : ymKey(x.nx.d)) === k);
-  if (slot) return `<section class="panel"><div class="panel-h"><h2>Coming due</h2><span class="ft-hd">${ftTesting()}<button class="btn sm" data-ft-go="forecast">By month</button></span></div><div class="ft-months">${months.map(k => { const xs = by(k), c = xs.filter(x => x.nx.state === "crit").length; return `<button type="button" class="ft-m ${c ? "crit" : xs.length ? "warn" : ""}" data-ft-go="forecast" data-m="${k}"><small>${esc(ymLabel(k))}</small><b>${xs.length}</b></button>`; }).join("")}</div></section>`;
+  if (slot) return `<section class="panel"><div class="panel-h"><h2>Coming due by month</h2><span class="ft-hd">${ftTesting()}<button class="btn sm" data-ft-go="forecast">Open</button></span></div><div class="ft-months">${months.map(k => { const xs = by(k), c = xs.filter(x => x.nx.state === "crit").length; return `<button type="button" class="ft-m ${c ? "crit" : xs.length ? "warn" : ""}" data-ft-go="forecast" data-m="${k}"><small>${esc(ymLabel(k))}</small><b>${xs.length}</b></button>`; }).join("")}</div></section>`;
   const open = ui.ftM || months[0];
   return `${ftBack("Maintenance forecast", ftTesting())}
     <p class="hint">Items coming due in the next 6 months at the ${esc(ui.pace)} pace, from Veryon (hours as of ${esc(fmt(parse(aircraft().asOf)))}). ${ui.mxOff.size ? `Hidden like on the Maint. tab: ${esc([...ui.mxOff].join(", "))} items.` : ""}</p>
@@ -541,6 +548,8 @@ document.addEventListener("click", e => {
   if (d) { e.stopPropagation(); ui.ftDest = d.dataset.ftDest || null; render(); window.scrollTo(0, 0); return; }
   const m = e.target.closest("[data-ft-m]");
   if (m) { e.stopPropagation(); ui.ftM = ui.ftM === m.dataset.ftM ? "-" : m.dataset.ftM; render(); return; }
+  const fo = e.target.closest("[data-ft-fold]");
+  if (fo) { e.stopPropagation(); ui.ftMxOpen = !ui.ftMxOpen; render(); return; }
   const at = e.target.closest("[data-ft-att]");
   if (at && !e.target.closest("[data-edit]")) { e.stopPropagation(); ui.ftAtt = ui.ftAtt === at.dataset.ftAtt ? null : at.dataset.ftAtt; render(); return; }
 }, true);
