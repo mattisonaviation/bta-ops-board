@@ -168,3 +168,11 @@ async function ckShow() {
 }
 document.addEventListener("click", e => { if (e.target.closest("[data-ck]")) ckShow(); });
 addEventListener("online", () => { if (CKK) ckBoot(); });
+/* Parts & inventory: a tile that opens the BTA Parts page (inventory, count mode and verification) on claude.ai.
+   Shown only to logins the build marks with me.parts (Matt, plus anyone switched on in Crew logins). The person also
+   needs the BTA Parts page shared with their claude.ai account. */
+const PT_URL = "https://claude.ai/artifact/864v1rgitQ5rJqHsFfHpfu";
+function ptTile() {
+  if (!ME || !ME.parts) return "";
+  return `<a class="tile acc" href="${PT_URL}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><div class="tile-h"><span class="ico">${ICON.mx}</span>Parts &amp; inventory</div><div class="tile-b"><span class="big" style="font:600 17px/1.3 var(--f-display)">Open BTA Parts</span></div><div class="tile-f">Stock, locations, count and verify · opens in claude.ai</div></a>`;
+}
