@@ -19,3 +19,7 @@ Install it like an app: on iPhone/iPad open the site in Safari, tap Share › Ad
 ## Check Ride (Matt only)
 
 `checkride/` holds the check airman tool for 135.293/297/299 checks in N282BT (briefings, scenario oral, grading, document photos and the Jet Logistics TR-2/TR-6/TR-7 forms), encrypted with its own key (same format as `apg/`): `app.bin` is the app and `tr2.bin`, `tr6.bin`, `tr7.bin` are the blank JLI forms. Only logins given that key see the Check Ride tile; it opens full screen and works offline. Checks and photos stay on the device. `vendor/pdf-lib.min.js` (MIT) fills the forms in the browser.
+
+## Feature switches (testing)
+
+`build/feat_module.js` and `build/feat_module.css.html` add a Tools hub and the features being tested for the BTA App (trip status, flight log, trip request, close-out, load planning, destination guide, cockpit cards, training grid, hazmat, expirations, upgrade readiness, emphasis items, slide library, manuals, maintenance forecast, recurring tasks, expenses, and two Home layout changes). Who sees each feature is set per person or group in Matt's "BTA Ops Board – Feature access" Google Sheet; the build gives each login a key only for the features switched on for it. `features/` holds feature content encrypted with each feature's own key (same file format as `apg/`). Entries made in the flight log, tasks, expenses and similar tools stay on the device until the BTA App has a shared database.
