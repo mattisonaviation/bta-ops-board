@@ -181,7 +181,9 @@ function ftStatus() {
   const flyingToday = fl.find(f => onDay(f, TODAY));
   const crew = crewOn(TODAY);
   let st = "none", label = "Status not set", sub = "Mark a maintenance item In work on your board to show In maintenance";
-  if (inWork.length) { const it = mxItems().find(i => i.id === inWork[0].id); st = "warn"; label = "In maintenance"; sub = it ? ftSentence(it.item) : "Work in progress"; }
+  const acS = String(aircraft().status || "").trim();
+  if (acS) { st = /aog|ground/i.test(acS) ? "crit" : /maint|91/i.test(acS) ? "warn" : /avail/i.test(acS) ? "ok" : "none"; label = acS; sub = [aircraft().statusNote, aircraft().statusSince ? "since " + fmtS(parse(aircraft().statusSince)) : ""].filter(Boolean).join(" · ") || (inWork.length ? "Work in progress on the board" : ""); }
+  else if (inWork.length) { const it = mxItems().find(i => i.id === inWork[0].id); st = "warn"; label = "In maintenance"; sub = it ? ftSentence(it.item) : "Work in progress"; }
   else if (flyingToday) { st = "ok"; label = "Flying today"; sub = flyingToday.route || ""; }
   else if (openSq.length) { st = "warn"; label = "Open squawks"; sub = plural(openSq.length, "open squawk") + " on the board"; }
   const ac = aircraft();
