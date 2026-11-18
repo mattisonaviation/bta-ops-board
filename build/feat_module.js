@@ -29,10 +29,12 @@ const FT_LIST = [
   {id: "tasks", g: "Maintenance", name: "Recurring tasks", desc: "Monthly and weekly jobs, ticked off when done", ico: "cal", local: 1},
   {id: "exp", g: "Business", name: "Expenses & budget", desc: "Costs by trip and quarter, cost per flight hour", ico: "cal", local: 1, ph: "Receipt photos come with the app"},
   {id: "status", g: "Board layout", name: "Aircraft status strip", desc: "Status, next trip, crew on duty and data ages at the top of Home", ico: "plane", layout: 1},
-  {id: "homev2", g: "Board layout", name: "Home: 2 weeks first, grouped attention", desc: "Needs attention grouped by person, top 3 first", ico: "alert", layout: 1},
+  {id: "homev2", g: "Board layout", name: "Board layout updates", desc: "2 weeks first and grouped attention on Home; one-line lists on phones; timeline shows only people with something on; account menu; bigger calendar chips", ico: "alert", layout: 1},
   {id: "access", g: "Admin", name: "Feature access", desc: "Who has which feature", ico: "key"}
 ];
 const ftDef = id => FT_LIST.find(f => f.id === id);
+// The layout updates ride on "homev2"; each can also be switched on alone with its own ID in the sheet.
+const ftLay = id => ftOn("homev2") || ftOn(id);
 const ftMine = () => FT_LIST.filter(f => ftOn(f.id) && !f.layout);
 
 /* storage on this device, per person */
@@ -103,11 +105,47 @@ function ftTiles() {
 function ftWrap(tab, html) {
   if (!FK) return html;
   try {
-    if (tab === "home") { if (ftOn("homev2")) html = ftHomeV2(html); if (ftOn("status")) html = ftStatus() + html; }
+    if (tab === "home") { if (ftOn("homev2")) html = ftHomeV2(html); if (ftLay("tlfilter")) html = ftTlFilter(html); if (ftOn("status")) html = ftStatus() + html; }
+    if (tab === "schedule" && ftLay("phone")) html = html.replace(/<div class="box scroll"><table class="t">/g, '<div class="box scroll ft-stack"><table class="t">').replace('<div class="box scroll ft-stack"><table class="t"><thead><tr><th>Pilot</th><th>Seat</th>', '<div class="box scroll ft-stack ft-rot"><table class="t"><thead><tr><th>Pilot</th><th>Seat</th>');
     if (tab === "training") { let pre = ""; if (ftOn("grid")) pre += ftGrid(true); if (ftOn("expiry")) pre += ftExpiry(true); html = pre + html; }
     if (tab === "maintenance" && ftOn("forecast")) html = ftForecast(true) + html;
   } catch (x) { console.error("feature", x); }
+  queueMicrotask(ftDecorate);
   return html;
+}
+/* Timeline on Home: keep the Flying row and only people with something in the window. */
+function ftTlFilter(html) {
+  const T = '<div class="panel-h"><h2>Next 2 weeks</h2>', a = html.indexOf(T); if (a < 0) return html;
+  const s = html.indexOf('<div class="tl"', a); if (s < 0) return html;
+  const e = html.indexOf('<div class="tl-row cov">', s); if (e < 0) return html;
+  const part = html.slice(s, e); let hidden = 0;
+  const kept = part.replace(/<div class="tl-row"><div class="tl-lab"><b>([^<]*)<\/b><small>([^<]*)<\/small><\/div>([\s\S]*?)<\/div>(?=<div class="tl-row)/g, (m, name, sub, body) => {
+    if (name === "Flying" || /<button/.test(body)) return m; hidden++; return ""; });
+  const note = hidden ? `<p class="hint ft-tlnote">${plural(hidden, "person")} with nothing in these two weeks not shown.</p>` : "";
+  return html.slice(0, s) + kept + html.slice(e).replace(/(<div class="legend">)/, note + "$1");
+}
+/* Header account menu and calendar chips: classes on <body>, a small menu next to the status line. */
+function ftDecorate() {
+  const acct = ftLay("acct");
+  document.body.classList.toggle("ft-acct", acct);
+  document.body.classList.toggle("ft-cal", ftLay("cal"));
+  document.body.classList.toggle("ft-phone", ftLay("phone"));
+  let b = document.getElementById("ft-acct-btn");
+  if (acct && !b) {
+    const st = document.getElementById("status"); if (!st || !st.parentNode) return;
+    b = document.createElement("button"); b.type = "button"; b.id = "ft-acct-btn"; b.className = "btn sm"; b.setAttribute("aria-haspopup", "menu"); b.setAttribute("aria-expanded", "false");
+    b.textContent = "Account"; st.parentNode.insertBefore(b, st);
+  }
+  if (b) b.hidden = !acct;
+}
+function ftAcctMenu(btn) {
+  let m = document.getElementById("ft-acct-menu");
+  if (m) { m.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+  m = document.createElement("div"); m.id = "ft-acct-menu"; m.setAttribute("role", "menu");
+  const pw = document.getElementById("pwbtn");
+  m.innerHTML = `${pw ? `<button type="button" role="menuitem" data-ft-menu="pwbtn">Change password</button>` : ""}<button type="button" role="menuitem" data-ft-menu="logoutbtn">Sign out</button>`;
+  const r = btn.getBoundingClientRect(); m.style.top = (r.bottom + window.scrollY + 6) + "px"; m.style.left = Math.max(8, Math.min(r.left, innerWidth - 200)) + "px";
+  document.body.appendChild(m); btn.setAttribute("aria-expanded", "true");
 }
 function viewTools() {
   const id = ui.ftv;
@@ -135,10 +173,10 @@ function ftStatus() {
   const fl = S.flights.filter(f => (f.end || f.start) >= today).sort((a, b) => String(a.start).localeCompare(String(b.start)));
   const flyingToday = fl.find(f => onDay(f, TODAY));
   const crew = crewOn(TODAY);
-  let st = "ok", label = "Available", sub = "No work in progress on the board";
+  let st = "none", label = "Status not set", sub = "Mark a maintenance item In work on your board to show In maintenance";
   if (inWork.length) { const it = mxItems().find(i => i.id === inWork[0].id); st = "warn"; label = "In maintenance"; sub = it ? ftSentence(it.item) : "Work in progress"; }
   else if (flyingToday) { st = "ok"; label = "Flying today"; sub = flyingToday.route || ""; }
-  else if (openSq.length) { st = "warn"; label = "Available · open squawks"; sub = plural(openSq.length, "open squawk"); }
+  else if (openSq.length) { st = "warn"; label = "Open squawks"; sub = plural(openSq.length, "open squawk") + " on the board"; }
   const ac = aircraft();
   return `<section class="ft-strip ${st}" aria-label="Aircraft status">
     <div class="ft-s1"><span class="ft-dot" aria-hidden="true"></span><b>${esc(ac.tail || "N282BT")} · ${esc(label)}</b><span>${esc(sub)}</span></div>
@@ -492,6 +530,9 @@ const FT_ACT = {
 };
 document.addEventListener("click", e => {
   if (!FK || e.target.closest("dialog")) return;
+  const ab = e.target.closest("#ft-acct-btn"); if (ab) { e.stopPropagation(); ftAcctMenu(ab); return; }
+  const mi = e.target.closest("[data-ft-menu]"); if (mi) { e.stopPropagation(); const t = document.getElementById(mi.dataset.ftMenu); const m = document.getElementById("ft-acct-menu"); if (m) m.remove(); if (t) t.click(); return; }
+  const om = document.getElementById("ft-acct-menu"); if (om && !e.target.closest("#ft-acct-menu")) { om.remove(); const bb = document.getElementById("ft-acct-btn"); if (bb) bb.setAttribute("aria-expanded", "false"); }
   const g = e.target.closest("[data-ft-go]");
   if (g) { e.stopPropagation(); ui.ftv = g.dataset.ftGo || null; if (g.dataset.m) ui.ftM = g.dataset.m; ui.ftDest = null; go("tools"); return; }
   const a = e.target.closest("[data-ft-act]");
