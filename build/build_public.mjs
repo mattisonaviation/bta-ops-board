@@ -18,7 +18,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 const APG = {key: "__APG_KEY__", users: ["matt"]};
-const QUOTE = {key: "__QUOTE_KEY__", users: ["matt"]};
+const QUOTE = {key: "__QUOTE_KEY__", users: ["matt", "derek"]};
 const CHECK = {key: "__CHECK_KEY__", users: ["matt"]};
 // The feature master key is derived from the airports key, so it needs no secret of its own.
 const FEAT = {key: crypto.createHmac("sha256", Buffer.from(APG.key, "base64")).update("bta-feature-master").digest("base64")};
