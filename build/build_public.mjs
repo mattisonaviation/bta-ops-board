@@ -26,7 +26,7 @@ const PRIV = {a: APG, q: QUOTE, k: CHECK}; // wrapped-key field in a login entry
 const PRIV_NAME = {a: "airports", q: "quote", k: "checkride"};
 // Parts & inventory tile (a link to the BTA Parts page on claude.ai): these usernames always get it, and so does anyone
 // whose crewAuth entry has parts "yes" or "#parts" in its Notes, or who has the "parts" feature switched on in the sheet.
-const PARTS = {users: ["matt"]};
+const PARTS = {users: ["matt", "derek"]};
 
 const [tpl, snapdir, out, moddir, featPath] = process.argv.slice(2);
 if (!tpl || !snapdir || !out) { console.error("usage: node build_public.mjs <board.html> <snapdir> <out.html> [<moduledir>] [<features.json>]"); process.exit(2); }
